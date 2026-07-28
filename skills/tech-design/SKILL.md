@@ -60,6 +60,15 @@ On approval, the design is ready to feed into `code-gen` (code-architect) as its
 
 Keep it dense and top-down. Drop any section that adds nothing for this task.
 
+### Document organization (layered by complexity)
+- **Simple / single-module design**: use the single-doc template below; do not over-split.
+- **Complex / multi-module / multi-role system**: upgrade to a **two-part structure within ONE document** —
+  - **Part 1 — Solution Design (for reviewers, what & why)**: goal/background, concept glossary, feature list, constraints & assumptions,选型 + Build vs Buy, feasibility, business architecture diagram (role view), business flow diagram, requirement-level risks.
+  - **Part 2 — Technical Implementation Design (for code-gen, how)**: implementation architecture diagram, module breakdown (responsibility/boundary/deps), key-flow sequence diagrams, inter-module interfaces, data structures & DDL, implementation-level risks.
+  - **Seam: a module ↔ feature/assumption mapping table** (at the start of Part 2) — each module notes which Part-1 features it implements and which assumptions it depends on.
+- **Why two parts in one file, not two files**: when design and implementation evolve under the **same author and same review cycle** (tightly coupled, changed together), splitting into two physical files makes it easy to change the implementation and forget to update the upstream assumption, silently rotting the design doc. One file + the mapping table keeps the dependency physically visible and makes backflow explicit and cheap. Only split into separate files when implementation is handed to an **independent team and the design is frozen**.
+- **Backflow rule**: if implementation disproves a Part-1 assumption or feature (e.g. "that platform actually has no API"), follow the mapping table to locate and fix the Part-1 entry — pure "how" changes do not backflow, but changes to "what/why" must.
+
 ```markdown
 ## 技术方案: <name>
 
