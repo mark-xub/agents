@@ -50,6 +50,8 @@ If you find a problem, say so directly and propose the correction. Do not silent
 
 Produce the design using the Output Format below, then **STOP and wait for review**. Do NOT proceed to code-gen or expand into more docs until the user replies "同意 / confirm / 继续" or equivalent.
 
+- **Consistency on change (align immediately)**: a single decision usually surfaces in multiple places (interface signatures, diagrams, logic descriptions, constraint/assumption tables). Whenever a decision changes, **re-scan and sync all its other occurrences on the spot** so they describe the same fact — never defer this to a final verification pass. For multi-role / multi-component systems, explicitly check that diagrams, interfaces, and logic descriptions all point to the same thing.
+
 ### Step 4 — Handoff
 
 On approval, the design is ready to feed into `code-gen` (code-architect) as its Plan input. code-gen is responsible for turning the feature set + logic + structure into concrete interfaces, data structures, and table schemas. Offer to trigger it.
