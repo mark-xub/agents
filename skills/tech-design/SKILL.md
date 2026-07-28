@@ -89,6 +89,7 @@ Keep it dense and top-down. Drop any section that adds nothing for this task.
 ### 5. 整体结构与链路图 (Overall Structure & Flow) — REQUIRED
 先讲整体：1-2 段说清"整体怎么组织、数据从哪来、经过谁、到哪去"。
 - **链路图 (mandatory)**: 用 Mermaid `flowchart` 画端到端主链路，从入口到出口。标注每个节点(服务/模块)、每条边上的协议/数据、以及关键分支/失败/降级路径。
+- **角色-职责图 (multi-role systems, mandatory)**: 当系统涉及多个使用角色时，除链路图外，补一张按"角色 × 阶段 × 动作"的泳道图（Mermaid `flowchart` 分 subgraph 或 `sequenceDiagram`），让评审看清"谁在什么环节做什么、用哪个组件"。链路图回答"系统怎么建"（给 code-gen），角色图回答"谁用、怎么用"（给评审和使用者）。
 - 复杂或有状态时补 `sequenceDiagram` / `stateDiagram`。
 - 图中必须体现: 上下游、存储、缓存、MQ、第三方依赖（用概念名，不写表名/字段）。
 
