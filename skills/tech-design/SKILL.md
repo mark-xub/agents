@@ -63,7 +63,17 @@ Keep it dense and top-down. Drop any section that adds nothing for this task.
 ### Document organization (layered by complexity)
 - **Simple / single-module design**: use the single-doc template below; do not over-split.
 - **Complex / multi-module / multi-role system**: upgrade to a **two-part structure within ONE document** —
-  - **Part 1 — Solution Design (for reviewers, what & why)**: goal/background, concept glossary, feature list, constraints & assumptions,选型 + Build vs Buy, feasibility, business architecture diagram (role view), business flow diagram, requirement-level risks.
+  - **Part 1 — Solution Design (for reviewers, what & why)** — arranged in pyramid structure: conclusion first, supporting rationale second, details last.
+    1. Goal & background
+    2. Concept glossary
+    3. Feature list
+    4. Business architecture diagram (role view)
+    5. Business flow diagram
+    6. Constraints & assumptions
+    7. Option selection + Build vs Buy
+    8. Technical feasibility verification
+    - **Feature list writing rule**: each item describes a **capability** — what pain it solves, what it enables. **Do NOT** include stage/phase numbers (Stage 1/2/3…), execution-step arrows (→), or implementation-level technology names (specific platforms/tools). Sequencing and phase definitions belong in flow diagrams and sequence diagrams only, not in the feature list.
+    - **Self-explanatory diagrams**: annotate architecture/flow diagrams with brief notes for key constraints that affect structure (e.g. label a node with "no batch API → shard & poll"). This lets diagrams be understood without reading ahead to the constraints section.
   - **Part 2 — Technical Implementation Design (for code-gen, how)**: implementation architecture diagram, module breakdown (responsibility/boundary/deps), key-flow sequence diagrams, inter-module interfaces, data structures & DDL, implementation-level risks.
   - **Seam: a module ↔ feature/assumption mapping table** (at the start of Part 2) — each module notes which Part-1 features it implements and which assumptions it depends on.
 - **Why two parts in one file, not two files**: when design and implementation evolve under the **same author and same review cycle** (tightly coupled, changed together), splitting into two physical files makes it easy to change the implementation and forget to update the upstream assumption, silently rotting the design doc. One file + the mapping table keeps the dependency physically visible and makes backflow explicit and cheap. Only split into separate files when implementation is handed to an **independent team and the design is frozen**.
@@ -77,30 +87,17 @@ Keep it dense and top-down. Drop any section that adds nothing for this task.
 - 一句话目标 + 唯一成功判据（可度量）。
 - 非目标 (Non-goals): 明确不做什么。
 
-### 2. 约束与假设 (Constraints & Assumptions)
-| 类型 | 内容 |
-|------|------|
-| 技术栈 | ... |
-| 约束 | 延迟/QPS/数据规模/依赖/deadline |
-| 假设 | 标记为假设，待确认 |
-
-### 3. 功能点清单 (Feature List) — REQUIRED
-逐条列出本次覆盖的全部功能点/行为，含正常路径与异常/边界行为。此清单必须齐全。
+### 2. 功能点清单 (Feature List) — REQUIRED
+逐条列出本次覆盖的全部功能点/行为，含正常路径与异常/边界行为。每条只写**能力**（解决什么痛点、赋予什么能力），禁止混入阶段编号、执行步骤箭头、技术手段名词。此清单必须齐全。
 | # | 功能点 | 说明 / 触发条件 | 归属模块 |
 |---|--------|----------------|----------|
 | 1 | ... | ... | ... |
 
-### 4. 方案选型 (Options) — only if >1 viable path
-| 方案 | 优点 | 缺点 | 适用条件 |
-|------|------|------|----------|
-| A(选定) | ... | ... | ... |
-| B | ... | ... | ... |
-> 选 A 的理由: 一句话。结论必须确定。
-
-### 5. 整体结构与链路图 (Overall Structure & Flow) — REQUIRED
+### 3. 整体结构与链路图 (Overall Structure & Flow) — REQUIRED
 先讲整体：1-2 段说清"整体怎么组织、数据从哪来、经过谁、到哪去"。
 - **链路图 (mandatory)**: 用 Mermaid `flowchart` 画端到端主链路，从入口到出口。标注每个节点(服务/模块)、每条边上的协议/数据、以及关键分支/失败/降级路径。
 - **角色-职责图 (multi-role systems, mandatory)**: 当系统涉及多个使用角色时，除链路图外，补一张按"角色 × 阶段 × 动作"的泳道图（Mermaid `flowchart` 分 subgraph 或 `sequenceDiagram`），让评审看清"谁在什么环节做什么、用哪个组件"。链路图回答"系统怎么建"（给 code-gen），角色图回答"谁用、怎么用"（给评审和使用者）。
+- **图自解释**: 图中用简短注释标注影响结构的关键约束（如节点旁标"无批量接口→分片提交"），让图不依赖后文约束表即可读懂。
 - 复杂或有状态时补 `sequenceDiagram` / `stateDiagram`。
 - 图中必须体现: 上下游、存储、缓存、MQ、第三方依赖（用概念名，不写表名/字段）。
 
@@ -112,6 +109,20 @@ flowchart LR
   C -->|degrade| E[Fallback]
   D --> F[Exit/Downstream]
 ```
+
+### 4. 约束与假设 (Constraints & Assumptions)
+| 类型 | 内容 |
+|------|------|
+| 技术栈 | ... |
+| 约束 | 延迟/QPS/数据规模/依赖/deadline |
+| 假设 | 标记为假设，待确认 |
+
+### 5. 方案选型 (Options) — only if >1 viable path
+| 方案 | 优点 | 缺点 | 适用条件 |
+|------|------|------|----------|
+| A(选定) | ... | ... | ... |
+| B | ... | ... | ... |
+> 选 A 的理由: 一句话。结论必须确定。
 
 ### 6. 模块设计与实现逻辑 (Modules & Logic) — from macro to micro
 按模块展开，每个模块只写：
@@ -129,7 +140,7 @@ flowchart LR
 
 ## Rules
 
-1. **Top-down**: overall structure and flow first, module logic second, never the reverse. A reviewer reading sections 1 & 5 should understand the whole design.
+1. **Top-down (pyramid)**: conclusion first (goal → features → architecture diagram), then supporting rationale (constraints, options), then details. A reviewer reading sections 1–3 should already have the full mental model.
 2. **Feature list must be complete**: enumerating all feature points (§3) is mandatory; a forgotten behavior is a design bug, not a code-gen bug.
 3. **No low-level contracts**: do NOT write interface signatures, DTO/field definitions, table DDL, indexes, or Redis key/TTL. Describe data conceptually and let code-gen produce the precise contract.
 4. **One design at a time**: never dump multiple full alternatives as finished designs — compare in the Options table, commit to one.
@@ -140,6 +151,7 @@ flowchart LR
 9. **Reflect before drafting** — challenging a wrong requirement and catching missing features is the highest-value thing this skill does.
 10. **Follow the user's language** (Chinese request → Chinese design).
 11. **Design only** — do not write implementation code, interfaces, or schemas; that is code-gen's job.
+12. **Feature list ≠ flow** — the feature list answers "what can the system do" (capability view); flow diagrams/sequence diagrams answer "how do things run in order" (process view). Never mix them: no phase numbers, step arrows, or implementation-level tool names in the feature list.
 
 ## Checklist (Internal)
 
@@ -148,6 +160,7 @@ flowchart LR
 - [ ] Non-goals explicit
 - [ ] `<reflection>` challenged the request AND checked feature completeness before drafting
 - [ ] Feature list (§3) enumerates ALL feature points, including error/edge behaviors
+- [ ] Feature list items are capability descriptions only — no phase numbers, step arrows, or tech-tool names
 - [ ] Assumptions marked
 - [ ] Reasoning is top-down: overall structure & flow before module logic
 - [ ] End-to-end flow diagram (Mermaid flowchart) included, showing nodes/edges/failure paths (conceptual, no table/field names)
