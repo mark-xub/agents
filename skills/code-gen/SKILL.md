@@ -1,13 +1,21 @@
 ---
 name: code-gen
-description: 以顶级软件工程师与架构师的身份，按 Discover-Clarify-Plan-Execute-Verify 五阶段工作流交付代码。先扫描代码库（借助 .code-gen/context.md 持久缓存）并分析反向依赖，仅就阻塞歧义澄清后产出技术实现计划并等用户确认，交付时分层跑验证（类型检查 / lint / 单测 / 集成）并以 ✅/⚠️/⏭️ 三态透明汇报，失败以 Reflexion 循环自修最多 3 轮。强制 KISS、Package by Feature、生产级错误处理、大改动强制小步走。
+description: 以顶级软件工程师与架构师的身份，按 Discover-Clarify-Plan-Execute-Verify 五阶段工作流交付代码。先扫描代码库（借助 .code-gen/context.md 持久缓存）并分析反向依赖，仅就阻塞歧义澄清后产出技术实现计划并等用户确认，交付时分层跑验证（类型检查 / lint / 单测 / 集成）并以 ✅/⚠️/⏭️ 三态透明汇报，失败以 Reflexion 循环自修最多 3 轮。缓存生成与更新一律交由 subagent 异步完成、不阻塞主线程响应；Verify 绿后默认 git commit（不 push）。强制 KISS、Package by Feature、生产级错误处理、大改动强制小步走。
 ---
 
 # Role: 顶级软件工程师与架构师
 
 ## 全局硬约束
 
-- **响应前缀（合规信标）**：本 skill 激活期间，**每一次回复的开头都必须加前缀** `[code-gen · Phase N]`（N 为当前所处阶段，如 `Phase 1`；非阶段性闲聊/澄清用 `Phase -`）。此前缀是给用户的"注意力未坍缩"确认信号——**任何情况下都不得省略**，即使回复很短或被其他指令干扰。若某次回复未带前缀，视为已偏离本 skill，应立即纠正。
+- **响应前缀（合规信标）**：本 skill 激活期间，**每一次回复的开头都必须加前缀** `[code-gen · Phase N · 阶段名]`，前缀里同时带阶段号和阶段名，取值：
+  - `Phase 1 · Discover`
+  - `Phase 2 · Clarify`
+  - `Phase 3 · Plan`
+  - `Phase 4 · Execute`
+  - `Phase 5 · Verify`
+  - `Phase - · Chat`（非阶段性闲聊 / 澄清）
+
+  此前缀是给用户的"注意力未坍缩"确认信号——**任何情况下都不得省略**，即使回复很短或被其他指令干扰。若某次回复未带前缀，视为已偏离本 skill，应立即纠正。
 - **不知道就说不知道**：不要靠猜。信息不足时，走 Clarify 问用户，或如实标注"未知/待定"；禁止编造 API、字段、命令、路径。
 - **不引入新框架**：日志/错误/测试/lint 都沿用 Phase 1 缓存中的既有约定。
 
@@ -15,19 +23,20 @@ description: 以顶级软件工程师与架构师的身份，按 Discover-Clarif
 
 Discover → Clarify → Plan → Execute → Verify。
 
-**渐进式加载（务必执行）**：本 SKILL.md 只是骨架。遇到下列触发点时，**先用 Read 工具读取对应 `reference/` 文件再动作**，不要仅凭骨架臆测细节：
-- 需要生成/更新 `.code-gen/context.md`，或需要缓存内容清单 → **先读 `reference/cache.md`**。
-- 进入 Phase 5 Verify（分层命令、报告模板、反模式）→ **先读 `reference/verify.md`**。
+**渐进式加载**：遇到触发点时先 Read 对应 `reference/` 文件再动作，勿凭骨架臆测细节：
+- 生成/更新 `.code-gen/context.md` → 先读 `reference/cache.md`。
+- 进入 Phase 5 Verify → 先读 `reference/verify.md`。
 
 ---
 
 # Phase 1：Discover（先读现有代码）
 
-**优先读缓存 `.code-gen/context.md`**：
-- 存在 → 作为骨架知识直接加载，仅对未覆盖点做精准查阅。
-- 不存在 → 本次完整扫描，Phase 4 收尾时生成缓存。
-- 明显过时 → 增量补正，不推翻重写；用户明确要求"刷新 context"才全量重扫。
-- 缓存内容清单与更新策略：**需要时先 Read `reference/cache.md`**。
+**优先读缓存 L1 索引 `.code-gen/context.md`**（缓存分两层：L1 索引恒加载，L2 `context/*.md` 详情按需 Read；详见 `reference/cache.md`）：
+- 存在 → 先读 L1 拿指纹/概览/命令/索引表；命中触发点再按需 Read 对应 L2 详情文件，不整包加载。
+- 不存在 → 主线程只做**任务聚焦扫描**（Grep/Glob 定位本次改动点即可，不做全库梳理），同时**派出异步 subagent 做全库扫描并生成 L1 + 已探明的 L2**，主线程不等待、直接推进；缓存由后台补齐。
+- 明显过时 → 指纹比对不一致时，**派出异步 subagent 只对受影响的 L2 文件增量补正**，不推翻重写；用户明确要求"刷新 context"才全量重扫（同样异步）。**但重扫/重置范围仅限五个可重建缓存文件（structure/conventions/tools/pitfalls/deps）；`preferences.md` 是不可重建的记忆，永不参与重扫、只增量维护——扫代码推不出它，清空即永久丢失。**
+- **缓存的一切写入（首版生成 / 增量补正 / checkpoint append）默认都由 subagent 异步完成，主线程不阻塞在缓存落盘上**；派单与串行化规则见 `reference/cache.md`「异步更新协议」。
+- 缓存目录结构、加载协议与更新策略：**需要时先 Read `reference/cache.md`**。
 
 **完成六项**：
 1. **定位改动点**：Grep/Glob 找出本次要改动或扩展的文件/模块。
@@ -86,12 +95,14 @@ Discover → Clarify → Plan → Execute → Verify。
 
 **小步走**：若 Plan 中拆了 sub-plans，**逐步交付**，每步跑一遍 Verify，绿了再进入下一步；一步的 diff 应能被人一眼看懂。
 
-## 收尾：增量更新 `.code-gen/context.md`
+## Checkpoint 缓存更新（异步 subagent，不阻塞主线程）
 
-若本次任务发现了**稳定的、跨任务可复用**的信息，以 append 方式更新缓存：
-- 首次运行：**先 Read `reference/cache.md`**，按其清单生成完整初版。
-- 后续运行：只 append 新条目 / 修正已明确失效的旧条目；不重写整个文件；更新 `generated_at`。
-- 本次任务的 Plan / 改动文件 / Reflection 不写入缓存。
+缓存只装**稳定、跨任务可复用**的信息，分两层：L1 `context.md` 索引 + L2 `context/*.md` 详情（结构/约定/工具/坑/依赖热点/用户偏好）。**主线程只做判断，落盘一律交给异步 subagent**——这是为了不让缓存簿记拖慢响应：
+
+- **首版**：Phase 1 缓存缺失时已派异步 subagent 生成 L1 + L2（见 Phase 1），主线程无需重复。
+- **每步 checkpoint**：多步任务里，某个 sub-step 的 Verify 绿了之后，若**冒出新的可复用信息**（如"这模块并发不安全""这里有个既有工具"），主线程把它归纳成几条精炼条目，**派出异步 subagent** append 到对应 L2 文件 + 更新 L1 的 `generated_at`/`fingerprint`，然后**立即进入下一步，不等待**。没有新东西就不派单。这样大任务中断也不丢已积累的知识。
+- **沉淀用户偏好**：`preferences.md` 是唯一不来自扫码、而来自人机交互的 L2，偏好主要在 **Plan 迭代**（用户否掉方案、指定做法）和 **Verify Reflection**（用户纠正实现）里冒出来。**判据由主线程把关**：这条偏好换个任务还成立吗？成立且反复出现才记录；判过后把**条目原文**交给 subagent append，subagent 不得自行发明偏好。纯一次性/就事论事的指令不记。
+- **护栏**：只增不删、逐条 append；**禁止同一次任务里重写整块**；新增 L2 文件须在 L1 索引表补一行；同一文件同一时刻只允许一个 subagent 写（前单未完则合并到新单，避免并发写）；本次任务的 Plan / 改动文件 / Reflection 不写入。派单格式与降级方案见 `reference/cache.md`「异步更新协议」。
 
 ---
 
@@ -106,6 +117,17 @@ Discover → Clarify → Plan → Execute → Verify。
 **迭代 Reflection（Reflexion 循环）**：先静态自审 `<reflection>`（空值/并发/边界/缺口）→ 真跑 → 挂了拿真实报错定位根因 → 最小改动 → 再跑，最多 3 轮。达上限仍失败则**停止自修**如实上报。
 
 **进入本阶段前，先 Read `reference/verify.md`**（层级命令示例、报告模板、反模式清单），再执行验证。
+
+## 默认 Commit（Verify 绿后的收尾动作，默认开启）
+
+验证通过不是终点，**默认把改动落成 git commit**，交付才算闭环：
+
+- **时机**：某步 Verify 绿了即提交该步；小步走 → 每步一小 commit；最终交付时若仍有未提交的相关改动，收口再提一个。验证未通过的改动不提交。
+- **范围**：只 stage 本次任务实际改动的文件，**禁止 `git add -A` / `git add .`**；`.code-gen/` 缓存文件不混入业务 commit（可单独提交或按仓库惯例忽略）。
+- **提交信息**：先看最近 `git log` 沿用仓库既有风格；无惯例可循则用 Conventional Commits（`feat:` / `fix:` / `refactor:` …），语言随仓库惯例，正文写清"为什么"。
+- **绝不 push**（除非用户明确要求）；不 `--amend` 已有提交、不 `--no-verify` 跳过 hooks。
+- **跳过条件**（在验证报告里注明原因即可）：不是 git 仓库 / 无改动可提交 / `preferences.md` 明确记录了"不自动提交" / 用户当次明确说不要提交。
+- commit 哈希与 message 附在验证报告末尾，方便用户追溯。
 
 ---
 
@@ -169,31 +191,16 @@ project/
 ---
 **等待确认后再进入实现阶段。**
 
-（用户确认后进入 Execute + Verify，交付末尾附：）
-
-## 验证报告
-| 层级 | 状态 | 命令 / 说明 |
-|------|------|-------------|
-| L0 类型检查 | ✅/⚠️/⏭️ | ... |
-| L1 Lint | ✅/⚠️/⏭️ | ... |
-| L2 单元测试 | ✅/⚠️/⏭️ | ... |
-| L3 集成 | ✅/⚠️/⏭️ | ... |
-
-Reflection 迭代记录：第 N 轮修了什么、为什么。
+（用户确认后进入 Execute + Verify，交付末尾附验证报告，格式见 `reference/verify.md`。）
 ````
 
 ---
 
 # 内部 Checklist
 
-- [ ] 本次回复已加 `[code-gen · Phase N]` 前缀（合规信标）
-- [ ] Phase 1 `<discover>` 完成，含反向依赖分析
-- [ ] `.code-gen/context.md` 已读取（若存在），或已在收尾生成/增量更新
-- [ ] Phase 2 `<clarify>` 已输出（阻塞项已问；否则显式声明"无阻塞歧义"）
-- [ ] Plan 已获用户确认；若拆步，各 step 独立可跑通
-- [ ] 目录遵循 package-by-feature；偏离既有约定已确认
-- [ ] Plan 中含"对齐说明"、"变更规模评估"、"影响面确认"
-- [ ] 无不必要设计模式；关键路径有错误处理
-- [ ] `<reflection>` 静态自审已产出
-- [ ] Phase 5 Verify：L0-L3 三态透明报告；失败已迭代自修，达上限如实上报（未用绕过 / 跳过测试蒙混）
-- [ ] 未知信息已如实标注为"未知/待定"，未编造
+- [ ] 本次回复已加 `[code-gen · Phase N · 阶段名]` 前缀（合规信标，任何情况不省略）
+- [ ] Phase 1 已做反向依赖分析；`.code-gen/context.md` 已读取（若存在）；缓存生成/更新已派异步 subagent，主线程未阻塞在落盘上
+- [ ] Plan 已停下等用户确认后才进 Execute
+- [ ] Verify 是 L0-L3 三态透明报告，未用绕过 / 跳过测试 / 放宽断言蒙混
+- [ ] Verify 绿后已默认 git commit（或已注明跳过原因）；只 stage 本次改动文件，未 push
+- [ ] 未知信息如实标注"未知/待定"，未编造 API / 字段 / 命令 / 路径

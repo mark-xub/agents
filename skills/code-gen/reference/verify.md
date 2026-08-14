@@ -34,7 +34,11 @@
 Reflection 迭代记录：
 - 第 1 轮：类型报错 `T | undefined not assignable`，加空值分支修复。
 - 第 2 轮：单测挂在边界 case，补 off-by-one 保护后通过。
+
+Commit：`a1b2c3d` — `feat: 补充日期边界保护`（仅 stage 本次改动文件，未 push）
 ```
+
+**报告末尾的 Commit 行**：Verify 绿后默认提交（规则见 SKILL.md Phase 5「默认 Commit」：绿了才提交、只 stage 本次改动、绝不 push）。跳过提交时，把该行替换为跳过原因（非 git 仓库 / 无可提交改动 / 用户偏好不自动提交）。
 
 ## 迭代 Reflection（Reflexion 循环）
 
